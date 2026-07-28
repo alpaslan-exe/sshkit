@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1010 500" width="1010" height="500" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="13">
+  <rect x="0" y="0" width="1010" height="500" rx="10" fill="#0d1117" stroke="#30363d"/>
+  <rect x="0" y="0" width="1010" height="30" rx="10" fill="#161b22"/>
+  <rect x="0" y="20" width="1010" height="10" fill="#161b22"/>
+  <circle cx="18" cy="15" r="5" fill="#ff5f57"/>
+  <circle cx="36" cy="15" r="5" fill="#febc2e"/>
+  <circle cx="54" cy="15" r="5" fill="#28c840"/>
+  <text x="505" y="20" fill="#6e7681" font-size="12" text-anchor="middle">sshkit dashboard gpu-lab — pane layout</text>
+
+  <!-- main ssh pane -->
+  <rect x="18" y="46" width="974" height="240" rx="6" fill="#0b1017" stroke="#30363d"/>
+  <text x="34" y="70" fill="#58a6ff" font-weight="600">SSH — interactive shell</text>
+  <text x="34" y="96" fill="#c9d1d9" xml:space="preserve">ada@gpu-lab:~$ python train.py --epochs 200</text>
+  <text x="34" y="118" fill="#8b949e" xml:space="preserve">epoch 41/200  loss 0.318  acc 0.902</text>
+  <text x="34" y="140" fill="#8b949e" xml:space="preserve">epoch 42/200  loss 0.311  acc 0.906</text>
+  <text x="34" y="162" fill="#8b949e" xml:space="preserve">epoch 43/200  loss 0.305  acc 0.911</text>
+  <text x="34" y="184" fill="#c9d1d9" xml:space="preserve">_</text>
+  <text x="34" y="262" fill="#6e7681" font-size="12">your normal SSH session — sshkit only adds the panes below</text>
+
+  <!-- monitor panes -->
+  <g>
+    <rect x="18" y="298" width="236" height="184" rx="6" fill="#0b1017" stroke="#30363d"/>
+    <text x="34" y="322" fill="#58a6ff" font-weight="600">GPU</text>
+    <text x="34" y="346" fill="#c9d1d9" font-size="12" xml:space="preserve">#0 u98% m41k/48k t71C p310W</text>
+    <text x="34" y="366" fill="#c9d1d9" font-size="12" xml:space="preserve">#1 u94% m39k/48k t68C p298W</text>
+    <text x="34" y="392" fill="#8b949e" font-size="12" xml:space="preserve">gpu pid sm  mem cmd</text>
+    <text x="34" y="412" fill="#8b949e" font-size="12" xml:space="preserve">0  41233 97% 62% python</text>
+    <text x="34" y="432" fill="#8b949e" font-size="12" xml:space="preserve">1  41233 93% 60% python</text>
+    <text x="34" y="466" fill="#6e7681" font-size="11">nvidia-smi, 2s refresh</text>
+  </g>
+  <g>
+    <rect x="264" y="298" width="236" height="184" rx="6" fill="#0b1017" stroke="#30363d"/>
+    <text x="280" y="322" fill="#58a6ff" font-weight="600">CPU</text>
+    <text x="280" y="346" fill="#c9d1d9" font-size="12" xml:space="preserve">load 6.14 5.88 5.31</text>
+    <text x="280" y="366" fill="#c9d1d9" font-size="12" xml:space="preserve">cpu 74%</text>
+    <text x="280" y="386" fill="#c9d1d9" font-size="12" xml:space="preserve">mem 61G/128G</text>
+    <text x="280" y="412" fill="#8b949e" font-size="12" xml:space="preserve">  310%  12% python</text>
+    <text x="280" y="432" fill="#8b949e" font-size="12" xml:space="preserve">   22%   1% dockerd</text>
+    <text x="280" y="466" fill="#6e7681" font-size="11">/proc/stat, 3s refresh</text>
+  </g>
+  <g>
+    <rect x="510" y="298" width="236" height="184" rx="6" fill="#0b1017" stroke="#30363d"/>
+    <text x="526" y="322" fill="#58a6ff" font-weight="600">USERS</text>
+    <text x="526" y="346" fill="#c9d1d9" font-size="12" xml:space="preserve">logged in: 3</text>
+    <text x="526" y="372" fill="#8b949e" font-size="12" xml:space="preserve">ada   pts/0 Jul 27 09:11</text>
+    <text x="526" y="392" fill="#8b949e" font-size="12" xml:space="preserve">firas pts/3 Jul 27 08:02</text>
+    <text x="526" y="412" fill="#8b949e" font-size="12" xml:space="preserve">ci    pts/7 Jul 27 07:44</text>
+    <text x="526" y="466" fill="#6e7681" font-size="11">who, 5s refresh</text>
+  </g>
+  <g>
+    <rect x="756" y="298" width="236" height="184" rx="6" fill="#0b1017" stroke="#30363d"/>
+    <text x="772" y="322" fill="#58a6ff" font-weight="600">PROCESSES</text>
+    <text x="772" y="346" fill="#8b949e" font-size="12" xml:space="preserve"> CPU  MEM PID   CMD</text>
+    <text x="772" y="372" fill="#c9d1d9" font-size="12" xml:space="preserve">310%  12% 41233 python</text>
+    <text x="772" y="392" fill="#c9d1d9" font-size="12" xml:space="preserve"> 22%   1% 988   dockerd</text>
+    <text x="772" y="412" fill="#c9d1d9" font-size="12" xml:space="preserve">  4%   0% 1201  sshd</text>
+    <text x="772" y="466" fill="#6e7681" font-size="11">ps by CPU, 3s refresh</text>
+  </g>
+</svg>

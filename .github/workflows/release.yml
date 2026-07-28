@@ -1,0 +1,135 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build and release (e.g. v1.0.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: linux-x86_64
+            binary: sshkit
+          - os: macos-14
+            target: macos-arm64
+            binary: sshkit
+          - os: macos-13
+            target: macos-x86_64
+            binary: sshkit
+          - os: windows-latest
+            target: windows-x86_64
+            binary: sshkit.exe
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller keyring
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            pip install pywinpty windows-curses
+          fi
+
+      - name: Run tests
+        shell: bash
+        run: |
+          pip install pytest
+          pytest -q
+
+      - name: Build binary
+        shell: bash
+        run: |
+          EXTRA="--collect-all keyring"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            EXTRA="$EXTRA --collect-all winpty --hidden-import _curses --hidden-import curses"
+          fi
+          pyinstaller --noconfirm --onefile --name sshkit --paths src $EXTRA packaging/entrypoint.py
+
+      - name: Smoke-test binary
+        shell: bash
+        run: |
+          ./dist/${{ matrix.binary }} --version
+          ./dist/${{ matrix.binary }} doctor
+          ./dist/${{ matrix.binary }} list
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p out
+          cp dist/${{ matrix.binary }} out/
+          cp README.md LICENSE out/
+          cd out
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a ../sshkit-${{ matrix.target }}.zip ./*
+          else
+            tar czf ../sshkit-${{ matrix.target }}.tar.gz ./*
+          fi
+          cd ..
+          for f in sshkit-${{ matrix.target }}.*; do
+            if command -v sha256sum >/dev/null; then
+              sha256sum "$f" > "$f.sha256"
+            else
+              shasum -a 256 "$f" > "$f.sha256"
+            fi
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sshkit-${{ matrix.target }}
+          path: |
+            sshkit-${{ matrix.target }}.*
+
+  release:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Flatten artifacts
+        run: |
+          mkdir -p upload
+          find artifacts -type f -exec cp {} upload/ \;
+          ls -la upload
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: sshkit ${{ github.event.inputs.tag || github.ref_name }}
+          generate_release_notes: true
+          files: upload/*
+          body: |
+            Standalone builds of sshkit. No Python install required.
+
+            | Platform | Download |
+            | --- | --- |
+            | Linux x86_64 | `sshkit-linux-x86_64.tar.gz` |
+            | macOS Apple silicon | `sshkit-macos-arm64.tar.gz` |
+            | macOS Intel | `sshkit-macos-x86_64.tar.gz` |
+            | Windows x86_64 | `sshkit-windows-x86_64.zip` |
+
+            Each archive ships a `.sha256` checksum next to it.
+
+            macOS: the binaries are unsigned, so the first run needs
+            `xattr -d com.apple.quarantine sshkit`.

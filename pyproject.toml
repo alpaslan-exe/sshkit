@@ -1,0 +1,58 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sshkit-tui"
+dynamic = ["version"]
+description = "Cross-platform terminal SSH manager: host browser, saved passwords in the OS keystore, split-pane remote monitors"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "alpaslan-exe" }]
+keywords = ["ssh", "tui", "terminal", "sysadmin", "tmux", "curses"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console :: Curses",
+  "Intended Audience :: System Administrators",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS :: MacOS X",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Topic :: System :: Systems Administration",
+]
+dependencies = [
+  "keyring>=24; sys_platform == 'win32'",
+  "windows-curses>=2.3; sys_platform == 'win32'",
+  "pywinpty>=2.0; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+keyring = ["keyring>=24"]
+dev = ["pytest>=7", "ruff>=0.5"]
+
+[project.urls]
+Homepage = "https://github.com/alpaslan-exe/sshkit"
+Issues = "https://github.com/alpaslan-exe/sshkit/issues"
+Releases = "https://github.com/alpaslan-exe/sshkit/releases"
+
+[project.scripts]
+sshkit = "sshkit.cli:main"
+
+[tool.hatch.version]
+path = "src/sshkit/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sshkit"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501", "SIM105"]  # explicit try/except reads better in the pty/subprocess code
