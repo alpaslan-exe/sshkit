@@ -179,7 +179,9 @@ def render_managed_block(hosts: dict[str, Host]) -> str:
 def _write_config(text: str) -> None:
     # newline="\n": OpenSSH on Windows reads LF fine, and CRLF churn in the
     # config file makes diffs noisy for users who sync their dotfiles.
-    SSH_CONFIG.write_text(text, encoding="utf-8", newline="\n")
+    # (Path.write_text gained `newline` only in 3.10, hence the explicit open.)
+    with SSH_CONFIG.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(text)
     secure_file(SSH_CONFIG)
 
 

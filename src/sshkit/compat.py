@@ -55,20 +55,44 @@ def which_first(*names: str) -> str | None:
     return None
 
 
-def _restrict_windows_acl(path: Path) -> None:
-    """Grant the current user exclusive access; inheritance off."""
+def _icacls(*args: str) -> bool:
     icacls = shutil.which("icacls")
     if not icacls:
-        return
+        return False
+    try:
+        proc = subprocess.run(
+            [icacls, *args],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    except OSError:
+        return False
+    return proc.returncode == 0
+
+
+def _windows_principal() -> str:
     user = os.environ.get("USERNAME") or ""
-    if not user:
+    domain = os.environ.get("USERDOMAIN") or ""
+    if user and domain:
+        return f"{domain}\\{user}"
+    return user
+
+
+def _restrict_windows_acl(path: Path) -> None:
+    """Grant the current user exclusive access; inheritance off.
+
+    The (OI)(CI) inheritance flags are only valid on directories - passing them
+    for a file makes icacls fail *after* inheritance has been stripped, which
+    would leave a file nobody can read. So the flags are chosen per type and
+    inheritance is restored if the grant does not stick.
+    """
+    principal = _windows_principal()
+    if not principal:
         return
-    subprocess.run(
-        [icacls, str(path), "/inheritance:r", "/grant:r", f"{user}:(OI)(CI)F"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    )
+    rights = "(OI)(CI)F" if path.is_dir() else "F"
+    if not _icacls(str(path), "/inheritance:r", "/grant:r", f"{principal}:{rights}", "/Q"):
+        _icacls(str(path), "/inheritance:e", "/Q")
 
 
 def secure_dir(path: Path) -> None:
