@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.0
+
+### Added
+- Mosh support. Plain interactive connects (`sshkit connect <alias>`, the
+  browser, and dashboard main panes) use `mosh` automatically when it is
+  installed, the session is a real terminal, and the alias has no saved
+  password. Remote commands (`exec`, `exec-tty`, `monitor`) always use ssh.
+- `sshkit connect --mosh` requires mosh (the mosh bootstrap prompts for a
+  password itself if one is needed); `--no-mosh` forces plain ssh.
+- `sshkit doctor` reports the detected mosh client.
+
+Mosh 1.4's default `--experimental-remote-ip=proxy` resolves hosts through ssh
+itself, so ssh-config aliases, ports, keys and `ProxyJump` keep working.
+
 ## 1.0.0
 
 First public release. The macOS-only single-file script became a cross-platform

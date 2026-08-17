@@ -24,7 +24,15 @@ from .model import (
     write_ssh_config,
 )
 from .monitors import combined_monitor_script, remote_monitor_script
-from .session import password_autofill_mode, quote_remote, run_ssh, run_ssh_auto, run_ssh_with_password
+from .session import (
+    mosh_usable,
+    password_autofill_mode,
+    quote_remote,
+    run_mosh,
+    run_ssh,
+    run_ssh_auto,
+    run_ssh_with_password,
+)
 
 
 def print_hosts() -> None:
@@ -73,6 +81,7 @@ def doctor() -> None:
     print(f"state file: {compat.STATE_FILE}")
     print(f"ssh config: {compat.SSH_CONFIG}")
     print(f"ssh client: {compat.ssh_binary() or 'missing'}")
+    print(f"mosh client: {compat.mosh_binary() or 'not installed (optional)'}")
     print(f"credential store: {secrets.store_label()} via {secrets.backend_name()}")
     print(f"clipboard: {clipboard.clipboard_tool() or 'missing'}")
     print(f"dashboard backend: {dashboard_backend() or f'missing - {dashboard_hint()}'}")
@@ -177,6 +186,8 @@ def build_parser() -> argparse.ArgumentParser:
     connect_p.add_argument("--no-password-helper", action="store_true", help="Use plain ssh without saved-password autofill")
     connect_p.add_argument("--dashboard", action="store_true", help="Launch the split-pane dashboard")
     connect_p.add_argument("--no-dashboard", action="store_true", help="Force plain connection even if dashboard is enabled")
+    connect_p.add_argument("--mosh", action="store_true", help="Require mosh for this connection")
+    connect_p.add_argument("--no-mosh", action="store_true", help="Use ssh even when mosh is available")
     add_monitor_flags(connect_p)
 
     dashboard_p = sub.add_parser("dashboard", help="Connect with main SSH pane and monitor panes")
@@ -248,11 +259,14 @@ def main(argv: list[str] | None = None) -> int:
                 monitor_overrides_from_args(args, {}) if host else None,
             )
             return run_dashboard(args.alias, monitors)
+        use_mosh = True if args.mosh else (False if args.no_mosh else None)
         if args.no_password_helper:
+            if use_mosh or (use_mosh is None and mosh_usable(args.alias)):
+                return run_mosh(args.alias)
             return run_ssh(args.alias)
         if args.password_helper:
             return run_ssh_with_password(args.alias)
-        return run_ssh_auto(args.alias)
+        return run_ssh_auto(args.alias, use_mosh=use_mosh)
     if args.cmd == "dashboard":
         host = find_host(args.alias) or Host(args.alias)
         return run_dashboard(args.alias, enabled_monitors(host, monitor_overrides_from_args(args, {})))

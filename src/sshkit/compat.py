@@ -141,6 +141,13 @@ def ssh_binary() -> str | None:
     return None
 
 
+def mosh_binary() -> str | None:
+    """Locate a mosh client. Mosh has no native Windows build."""
+    if IS_WINDOWS:
+        return None
+    return shutil.which("mosh")
+
+
 def self_command() -> list[str]:
     """Argv prefix that re-invokes sshkit, for commands embedded in panes."""
     if getattr(sys, "frozen", False):  # PyInstaller one-file build

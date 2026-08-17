@@ -19,7 +19,7 @@ import subprocess
 import sys
 
 from . import clipboard, secrets
-from .compat import IS_WINDOWS, ssh_binary
+from .compat import IS_WINDOWS, mosh_binary, ssh_binary
 
 PASSWORD_PROMPT = re.compile(r"(?i)(password|passphrase).*:\s*$")
 HOSTKEY_PROMPT = "are you sure you want to continue connecting"
@@ -50,6 +50,42 @@ def run_ssh(alias: str, remote_args: list[str] | None = None, allocate_tty: bool
         return subprocess.call(ssh_argv(alias, remote_args, allocate_tty))
     except KeyboardInterrupt:
         return 130
+
+
+def mosh_argv(alias: str) -> list[str]:
+    binary = mosh_binary()
+    if not binary:
+        print(
+            "mosh not found. Install mosh and make sure it is on PATH.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    # mosh 1.4's default --experimental-remote-ip=proxy resolves the host
+    # through ssh itself, so ssh-config aliases, ports, keys and ProxyJump
+    # all keep working.
+    return [binary, alias]
+
+
+def run_mosh(alias: str) -> int:
+    try:
+        return subprocess.call(mosh_argv(alias))
+    except KeyboardInterrupt:
+        return 130
+
+
+def mosh_usable(alias: str) -> bool:
+    """True when an interactive session for `alias` should use mosh.
+
+    Mosh is chosen automatically only for plain interactive connects on a real
+    terminal, and only when no password is saved for the alias: the saved
+    password is auto-typed through the pty wrapper, which mosh's own terminal
+    takeover would break.
+    """
+    if not mosh_binary():
+        return False
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        return False
+    return not secrets.get_password(alias)
 
 
 def enable_windows_vt() -> None:
@@ -334,7 +370,20 @@ def run_ssh_auto(
     alias: str,
     remote_args: list[str] | None = None,
     allocate_tty: bool = False,
+    use_mosh: bool | None = None,
 ) -> int:
+    """Connect with the best available transport.
+
+    `use_mosh` True forces mosh, False disables it, None (default) picks mosh
+    for plain interactive connects when it is usable (see `mosh_usable`).
+    Remote commands always go over plain ssh.
+    """
+    interactive = not remote_args and not allocate_tty
+    if interactive:
+        if use_mosh:
+            return run_mosh(alias)
+        if use_mosh is None and mosh_usable(alias):
+            return run_mosh(alias)
     if secrets.get_password(alias):
         return run_ssh_with_password(alias, remote_args, allocate_tty=allocate_tty)
     return run_ssh(alias, remote_args, allocate_tty)

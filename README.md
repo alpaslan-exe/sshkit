@@ -42,6 +42,7 @@ Everything is one binary. No daemon, no config format to learn, no agent.
 | **One-key connect** | `Enter` to connect, `D` for the dashboard, `x` to force saved-password autofill |
 | **Password autofill** | Passwords live in Keychain / Credential Manager / Secret Service and are typed at the prompt through a real pty |
 | **Split-pane dashboard** | Your SSH shell on top, `gpu` / `cpu` / `users` / `processes` panes below, refreshing live |
+| **Mosh when available** | Interactive connects use [mosh](https://mosh.org) automatically if it's installed — roaming and lag-free typing; `--no-mosh` opts out, remote commands always use ssh |
 | **Config-safe** | Your hand-written `~/.ssh/config` entries are preserved verbatim, outside sshkit's managed block |
 | **Scriptable** | `sshkit exec`, `sshkit exec-tty` and `agent-*` variants for automation |
 | **Cross-platform** | The same commands on macOS, Linux, WSL and Windows |
@@ -114,6 +115,7 @@ sshkit list                        # every host sshkit can see
 sshkit add gpu-lab gpu-lab.edu -u ada -k ~/.ssh/id_ed25519
 sshkit password gpu-lab            # store the password in the OS keystore
 sshkit connect gpu-lab             # connect (autofills the password if saved)
+sshkit connect gpu-lab --mosh      # require mosh; --no-mosh forces plain ssh
 sshkit dashboard gpu-lab           # shell + monitor panes
 sshkit dashboard-config gpu-lab --on --gpu --no-users
 sshkit exec gpu-lab -- nvidia-smi  # run one command and exit
@@ -135,12 +137,13 @@ sshkit doctor                      # what sshkit found on this machine
 ### `sshkit doctor`
 
 ```
-sshkit version: 1.0.0
+sshkit version: 1.1.0
 platform: macos
 python: 3.12.7 (frozen binary)
 state file: ~/.ssh/sshkit/hosts.json
 ssh config: ~/.ssh/config
 ssh client: /usr/bin/ssh
+mosh client: /opt/homebrew/bin/mosh
 credential store: macOS Keychain via macos-keychain
 clipboard: /usr/bin/pbcopy
 dashboard backend: tmux

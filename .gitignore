@@ -10,3 +10,4 @@ venv/
 .ruff_cache/
 *.spec.bak
 .DS_Store
+*.spec
