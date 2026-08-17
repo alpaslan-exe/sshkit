@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.3
+
+### Fixed
+- mosh with a saved password crashed instantly ("Error: vector"): the
+  password-autofill pty reported a 0x0 window and mosh-client sizes its
+  framebuffer from it. The wrapper now seeds the child pty with the real
+  terminal size and forwards SIGWINCH, which also gives correctly sized
+  vim/htop inside password-autofilled ssh sessions.
+
 ## 1.2.2
 
 ### Fixed

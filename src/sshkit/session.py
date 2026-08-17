@@ -141,6 +141,17 @@ def _wait_status_to_exit_code(status: int) -> int:
     return 1
 
 
+def _set_winsize(fd: int, rows: int, cols: int) -> None:
+    import fcntl
+    import struct
+    import termios
+
+    try:
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+    except OSError:
+        pass
+
+
 def _run_with_password_posix(argv: list[str], password: str) -> int:
     import pty
     import select
@@ -163,6 +174,12 @@ def _run_with_password_posix(argv: list[str], password: str) -> int:
     if pid == 0:
         os.execvp(argv[0], argv)
 
+    # A fresh pty reports a 0x0 window. ssh shrugs; mosh-client sizes its
+    # framebuffer from it and dies with a std::vector length error. Seed the
+    # child's window from ours and keep it in sync on resize.
+    _set_winsize(master_fd, *terminal_size())
+    old_winch = None
+
     stdin_is_tty = os.isatty(stdin_fd)
     if stdin_is_tty:
         try:
@@ -171,7 +188,20 @@ def _run_with_password_posix(argv: list[str], password: str) -> int:
         except termios.error:
             old_term = None
 
+        def _forward_winch(signum: int, frame: object) -> None:
+            _set_winsize(master_fd, *terminal_size())
+
+        try:
+            old_winch = signal.signal(signal.SIGWINCH, _forward_winch)
+        except ValueError:  # not the main thread
+            old_winch = None
+
     def restore_terminal() -> None:
+        if old_winch is not None:
+            try:
+                signal.signal(signal.SIGWINCH, old_winch)
+            except ValueError:
+                pass
         if old_term is not None:
             try:
                 termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_term)
