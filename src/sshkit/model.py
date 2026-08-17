@@ -30,6 +30,7 @@ class Host:
     proxy_jump: str = ""
     dashboard: bool = False
     monitors: dict[str, bool] = field(default_factory=lambda: dict(DEFAULT_MONITORS))
+    mosh: str = "auto"  # auto | always | never
     notes: str = ""
     source: str = "managed"
     extra: dict[str, str] = field(default_factory=dict)
@@ -76,6 +77,14 @@ def validate_alias(alias: str) -> str | None:
     return None
 
 
+MOSH_MODES = ("auto", "always", "never")
+
+
+def parse_mosh_mode(value: Any, default: str = "auto") -> str:
+    mode = str(value or "").strip().lower()
+    return mode if mode in MOSH_MODES else default
+
+
 def parse_bool(value: str | None, default: bool = False) -> bool:
     if value is None or value == "":
         return default
@@ -102,6 +111,7 @@ def host_from_dict(alias: str, raw: dict[str, Any], source: str = "managed") -> 
         proxy_jump=proxy_jump,
         dashboard=bool(raw.get("dashboard", False)),
         monitors=monitors,
+        mosh=parse_mosh_mode(raw.get("mosh")),
         notes=str(raw.get("notes") or ""),
         source=source,
         extra=extra,
@@ -117,6 +127,7 @@ def host_to_dict(host: Host) -> dict[str, Any]:
         "proxy_jump": host.proxy_jump,
         "dashboard": host.dashboard,
         "monitors": host.monitors,
+        "mosh": host.mosh,
         "notes": host.notes,
         "extra": host.extra,
     }
@@ -334,6 +345,7 @@ def parse_monitor_list(value: str | None, default: dict[str, bool]) -> dict[str,
 
 __all__ = [
     "DEFAULT_MONITORS",
+    "MOSH_MODES",
     "Host",
     "all_hosts",
     "compat",
@@ -346,6 +358,7 @@ __all__ = [
     "managed_hosts_from_state",
     "parse_bool",
     "parse_monitor_list",
+    "parse_mosh_mode",
     "parse_ssh_config_hosts",
     "remove_alias_from_unmanaged_config",
     "render_managed_block",

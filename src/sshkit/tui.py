@@ -19,6 +19,7 @@ from .model import (
     managed_hosts_from_state,
     parse_bool,
     parse_monitor_list,
+    parse_mosh_mode,
     remove_alias_from_unmanaged_config,
     save_state,
     validate_alias,
@@ -198,6 +199,7 @@ class App:
             self.prompt("Dashboard monitors: gpu,cpu,users,processes", format_monitors(host.monitors)),
             host.monitors,
         )
+        mosh = parse_mosh_mode(self.prompt("Mosh: auto/always/never", host.mosh), host.mosh)
         notes = self.prompt("Notes", host.notes) or ""
 
         host.hostname = hostname
@@ -207,6 +209,7 @@ class App:
         host.proxy_jump = proxy_jump
         host.dashboard = dashboard
         host.monitors = monitors
+        host.mosh = mosh
         host.notes = notes
         host.source = "managed"
 
@@ -324,7 +327,7 @@ class App:
             elif password_helper:
                 code = run_ssh_with_password(host.alias)
             else:
-                code = run_ssh_auto(host.alias)
+                code = run_ssh_auto(host.alias, use_mosh={"always": True, "never": False}.get(host.mosh))
         finally:
             try:
                 input("\nPress Enter to return to sshkit...")

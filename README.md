@@ -42,7 +42,7 @@ Everything is one binary. No daemon, no config format to learn, no agent.
 | **One-key connect** | `Enter` to connect, `D` for the dashboard, `x` to force saved-password autofill |
 | **Password autofill** | Passwords live in Keychain / Credential Manager / Secret Service and are typed at the prompt through a real pty |
 | **Split-pane dashboard** | Your SSH shell on top, `gpu` / `cpu` / `users` / `processes` panes below, refreshing live |
-| **Mosh when available** | Interactive connects use [mosh](https://mosh.org) automatically if it's installed — roaming and lag-free typing; `--no-mosh` opts out, remote commands always use ssh |
+| **Mosh when available** | Interactive connects use [mosh](https://mosh.org) automatically if it's installed — roaming and lag-free typing. Per-host setting `auto`/`always`/`never`; `--no-mosh` opts out per connect; remote commands always use ssh |
 | **Config-safe** | Your hand-written `~/.ssh/config` entries are preserved verbatim, outside sshkit's managed block |
 | **Scriptable** | `sshkit exec`, `sshkit exec-tty` and `agent-*` variants for automation |
 | **Cross-platform** | The same commands on macOS, Linux, WSL and Windows |
@@ -113,6 +113,7 @@ On Linux, install `keyring` (`pip install "sshkit-tui[keyring]"`) or `libsecret`
 sshkit                             # interactive host browser
 sshkit list                        # every host sshkit can see
 sshkit add gpu-lab gpu-lab.edu -u ada -k ~/.ssh/id_ed25519
+sshkit add legacy-box 10.0.0.9 --mosh never   # per-host: auto (default) / always / never
 sshkit password gpu-lab            # store the password in the OS keystore
 sshkit connect gpu-lab             # connect (autofills the password if saved)
 sshkit connect gpu-lab --mosh      # require mosh; --no-mosh forces plain ssh

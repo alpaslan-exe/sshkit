@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.0
+
+### Added
+- Per-host mosh setting: `auto` (default — mosh when usable), `always`, or
+  `never`. Set it with `sshkit add <alias> <host> --mosh never`, or in the
+  browser's add/edit form ("Mosh: auto/always/never"). Stored in `hosts.json`;
+  older state files read as `auto`. `sshkit list` shows `mosh=always|never`
+  when set.
+- Precedence: an explicit `connect --mosh`/`--no-mosh` flag beats the host
+  setting; the host setting beats auto-detection. Dashboard panes stay on ssh
+  regardless. A host set to `always` fails loudly when mosh is missing, like
+  `--mosh`.
+
 ## 1.1.1
 
 ### Fixed

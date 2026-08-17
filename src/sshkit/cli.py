@@ -11,6 +11,7 @@ from . import __version__, clipboard, compat, secrets, tui
 from .dashboard import dashboard_backend, dashboard_hint, run_dashboard
 from .model import (
     DEFAULT_MONITORS,
+    MOSH_MODES,
     Host,
     all_hosts,
     enabled_monitors,
@@ -44,7 +45,8 @@ def print_hosts() -> None:
         key = f" key={host.identity_file}" if host.identity_file else ""
         jump = f" jump={host.proxy_jump}" if host.proxy_jump else ""
         dash = f" dashboard={format_monitors(host.monitors)}" if host.dashboard else ""
-        print(f"{pin} {host.alias:<24} {host.target:<48} {source}{key}{jump}{dash}")
+        mosh = f" mosh={host.mosh}" if host.mosh != "auto" else ""
+        print(f"{pin} {host.alias:<24} {host.target:<48} {source}{key}{jump}{dash}{mosh}")
 
 
 def add_or_update_from_args(args: argparse.Namespace) -> None:
@@ -59,6 +61,7 @@ def add_or_update_from_args(args: argparse.Namespace) -> None:
         port=str(args.port or "22"),
         identity_file=args.key or "",
         proxy_jump=args.jump or "",
+        mosh=args.mosh,
         dashboard=args.dashboard,
         monitors=monitor_overrides_from_args(args, dict(DEFAULT_MONITORS)),
         notes=args.notes or "",
@@ -232,6 +235,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_p.add_argument("-p", "--port", default="22")
     add_p.add_argument("-k", "--key", default="")
     add_p.add_argument("-j", "--jump", default="", help="ProxyJump alias or user@host")
+    add_p.add_argument("--mosh", choices=MOSH_MODES, default="auto", help="Use mosh for this host: auto (when usable), always, never")
     add_p.add_argument("--dashboard", action="store_true", help="Make dashboard the default for this host")
     add_monitor_flags(add_p)
     add_p.add_argument("-n", "--notes", default="")
@@ -259,7 +263,8 @@ def main(argv: list[str] | None = None) -> int:
                 monitor_overrides_from_args(args, {}) if host else None,
             )
             return run_dashboard(args.alias, monitors)
-        use_mosh = True if args.mosh else (False if args.no_mosh else None)
+        host_mosh = {"always": True, "never": False}.get(host.mosh if host else "auto")
+        use_mosh = True if args.mosh else (False if args.no_mosh else host_mosh)
         if args.no_password_helper:
             if use_mosh or (use_mosh is None and mosh_usable(args.alias)):
                 return run_mosh(args.alias)

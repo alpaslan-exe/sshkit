@@ -126,6 +126,47 @@ def test_run_ssh_auto_keeps_mosh_exit_after_real_session(monkeypatch):
     assert calls == ["mosh"]
 
 
+def test_parser_accepts_add_mosh_mode():
+    parser = cli.build_parser()
+    assert parser.parse_args(["add", "a", "1.2.3.4", "--mosh", "never"]).mosh == "never"
+    assert parser.parse_args(["add", "a", "1.2.3.4"]).mosh == "auto"
+
+
+def test_mosh_mode_roundtrip_and_coercion():
+    from sshkit.model import Host, host_from_dict, host_to_dict, parse_mosh_mode
+
+    host = Host(alias="a", hostname="1.2.3.4", mosh="always")
+    raw = host_to_dict(host)
+    assert raw["mosh"] == "always"
+    assert host_from_dict("a", raw).mosh == "always"
+    assert host_from_dict("a", {"hostname": "1.2.3.4"}).mosh == "auto"  # pre-1.2 state files
+    assert host_from_dict("a", {"hostname": "1.2.3.4", "mosh": "banana"}).mosh == "auto"
+    assert parse_mosh_mode(" Never ") == "never"
+    assert parse_mosh_mode("banana", "always") == "always"
+
+
+def test_connect_flag_beats_host_mosh_setting(monkeypatch):
+    from sshkit.model import Host
+
+    calls = []
+    monkeypatch.setattr(cli, "find_host", lambda alias: Host(alias=alias, mosh="always"))
+    monkeypatch.setattr(cli, "run_ssh_auto", lambda alias, use_mosh=None: calls.append(use_mosh) or 0)
+    cli.main(["connect", "a", "--no-mosh"])
+    cli.main(["connect", "a", "--mosh"])
+    cli.main(["connect", "a"])
+    assert calls == [False, True, True]
+
+
+def test_connect_host_mosh_never(monkeypatch):
+    from sshkit.model import Host
+
+    calls = []
+    monkeypatch.setattr(cli, "find_host", lambda alias: Host(alias=alias, mosh="never"))
+    monkeypatch.setattr(cli, "run_ssh_auto", lambda alias, use_mosh=None: calls.append(use_mosh) or 0)
+    cli.main(["connect", "a"])
+    assert calls == [False]
+
+
 def test_password_prompt_detection():
     assert session.PASSWORD_PROMPT.search("me@host's password: ")
     assert session.PASSWORD_PROMPT.search("Enter passphrase for key '/x': ")
