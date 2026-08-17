@@ -67,7 +67,7 @@ def test_mosh_argv_shape(monkeypatch):
 
 def test_run_ssh_auto_picks_mosh_only_for_interactive(monkeypatch):
     calls = []
-    monkeypatch.setattr(session, "run_mosh", lambda alias: calls.append(("mosh", alias)) or 0)
+    monkeypatch.setattr(session, "run_mosh_session", lambda alias: calls.append(("mosh", alias)) or 0)
     monkeypatch.setattr(session, "run_ssh", lambda alias, remote_args=None, allocate_tty=False: calls.append(("ssh", alias)) or 0)
     monkeypatch.setattr(session, "mosh_usable", lambda alias: True)
     monkeypatch.setattr(session.secrets, "get_password", lambda alias: None)
@@ -81,10 +81,31 @@ def test_run_ssh_auto_picks_mosh_only_for_interactive(monkeypatch):
 
 def test_run_ssh_auto_forced_mosh(monkeypatch):
     calls = []
-    monkeypatch.setattr(session, "run_mosh", lambda alias: calls.append(("mosh", alias)) or 0)
+    monkeypatch.setattr(session, "run_mosh_session", lambda alias: calls.append(("mosh", alias)) or 0)
     monkeypatch.setattr(session, "mosh_usable", lambda alias: False)
     session.run_ssh_auto("host", use_mosh=True)
     assert calls == [("mosh", "host")]
+
+
+def test_forced_mosh_falls_back_to_ssh_password_on_fast_failure(monkeypatch):
+    """A mosh=always host whose bootstrap dies must not lose the session."""
+    calls = []
+    clock = iter([100.0, 101.0])
+    monkeypatch.setattr(session.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(session, "run_mosh_session", lambda alias: calls.append("mosh") or 255)
+    monkeypatch.setattr(session, "run_ssh_with_password", lambda alias, remote_args=None, allocate_tty=False: calls.append("ssh-pw") or 0)
+    monkeypatch.setattr(session.secrets, "get_password", lambda alias: "hunter2")
+    assert session.run_ssh_auto("host", use_mosh=True) == 0
+    assert calls == ["mosh", "ssh-pw"]
+
+
+def test_run_mosh_session_uses_password_wrapper(monkeypatch):
+    calls = []
+    monkeypatch.setattr(session, "mosh_binary", lambda: "/usr/bin/mosh")
+    monkeypatch.setattr(session.secrets, "get_password", lambda alias: "hunter2")
+    monkeypatch.setattr(session, "_run_with_password_posix", lambda argv, password: calls.append((argv, password)) or 0)
+    assert session.run_mosh_session("host") == 0
+    assert calls == [(["/usr/bin/mosh", "host"], "hunter2")]
 
 
 def test_mosh_usable_requires_no_saved_password(monkeypatch):
@@ -99,8 +120,10 @@ def test_mosh_usable_requires_no_saved_password(monkeypatch):
     assert not session.mosh_usable("host")
 
 
-def test_dashboard_main_pane_never_uses_mosh():
-    assert "--no-mosh" in dashboard._main_argv("phil")
+def test_dashboard_main_pane_uses_plain_connect():
+    argv = dashboard._main_argv("phil")
+    assert argv[-2:] == ["phil", "--no-dashboard"]
+    assert "--no-mosh" not in argv  # host mosh setting decides; connect falls back on failure
 
 
 def test_run_ssh_auto_falls_back_to_ssh_on_fast_mosh_failure(monkeypatch):

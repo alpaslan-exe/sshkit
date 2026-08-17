@@ -77,13 +77,27 @@ def run_mosh(alias: str) -> int:
         return 130
 
 
-def mosh_usable(alias: str) -> bool:
-    """True when an interactive session for `alias` should use mosh.
+def run_mosh_session(alias: str) -> int:
+    """Run mosh; if a password is saved, auto-type it at the bootstrap prompt.
 
-    Mosh is chosen automatically only for plain interactive connects on a real
-    terminal, and only when no password is saved for the alias: the saved
-    password is auto-typed through the pty wrapper, which mosh's own terminal
-    takeover would break.
+    mosh starts mosh-server through a regular ssh child, so the saved-password
+    pty wrapper works on its prompt exactly as it does for plain ssh. mosh
+    never runs on Windows, so the POSIX wrapper is the only one needed.
+    """
+    password = secrets.get_password(alias)
+    if password and not IS_WINDOWS:
+        return _run_with_password_posix(mosh_argv(alias), password)
+    return run_mosh(alias)
+
+
+def mosh_usable(alias: str) -> bool:
+    """True when an interactive session for `alias` should use mosh unasked.
+
+    Auto mode stays conservative: only on a real terminal and only for aliases
+    without a saved password (password hosts tend to be the legacy boxes least
+    likely to run mosh-server, and a failed attempt costs a connect round
+    trip). Password autofill itself works fine with mosh — set the host's mosh
+    mode to `always` to get it.
     """
     if not mosh_binary():
         return False
@@ -383,18 +397,15 @@ def run_ssh_auto(
     Remote commands always go over plain ssh.
     """
     interactive = not remote_args and not allocate_tty
-    if interactive:
-        if use_mosh:
-            return run_mosh(alias)
-        if use_mosh is None and mosh_usable(alias):
-            started = time.monotonic()
-            code = run_mosh(alias)
-            # A host without mosh-server (or with UDP filtered at connect
-            # time) makes the mosh bootstrap fail within seconds. Treat that
-            # as "mosh not available for this host" and retry over plain ssh.
-            if code in (0, 130) or time.monotonic() - started >= MOSH_FAST_FAIL_SECONDS:
-                return code  # clean exit, user interrupt, or a real session
-            print(f"[sshkit] mosh could not reach {alias}; falling back to ssh.", file=sys.stderr)
+    if interactive and (use_mosh or (use_mosh is None and mosh_usable(alias))):
+        started = time.monotonic()
+        code = run_mosh_session(alias)
+        # A host without mosh-server (or with UDP filtered at connect
+        # time) makes the mosh bootstrap fail within seconds. Treat that
+        # as "mosh not available for this host" and retry over plain ssh.
+        if code in (0, 130) or time.monotonic() - started >= MOSH_FAST_FAIL_SECONDS:
+            return code  # clean exit, user interrupt, or a real session
+        print(f"[sshkit] mosh could not reach {alias}; falling back to ssh.", file=sys.stderr)
     if secrets.get_password(alias):
         return run_ssh_with_password(alias, remote_args, allocate_tty=allocate_tty)
     return run_ssh(alias, remote_args, allocate_tty)

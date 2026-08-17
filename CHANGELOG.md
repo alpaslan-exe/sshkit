@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.1
+
+### Fixed
+- Dashboards ignored a host's `mosh: always` setting: 1.1.1 hard-forced the
+  main pane to ssh. The main pane now runs a plain `connect`, which honors the
+  host's mosh mode; it is safe because every mosh attempt (auto or forced)
+  that fails within 10 seconds now falls back to ssh inside the same process,
+  so a failed bootstrap can no longer tear down the tmux session.
+- Saved passwords now autofill for mosh too: the bootstrap ssh prompt is typed
+  through the same pty wrapper used for plain ssh. A `mosh: always` host with
+  a stored password connects hands-free, in dashboards and plain connects.
+
 ## 1.2.0
 
 ### Added

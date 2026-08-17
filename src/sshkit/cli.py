@@ -189,7 +189,7 @@ def build_parser() -> argparse.ArgumentParser:
     connect_p.add_argument("--no-password-helper", action="store_true", help="Use plain ssh without saved-password autofill")
     connect_p.add_argument("--dashboard", action="store_true", help="Launch the split-pane dashboard")
     connect_p.add_argument("--no-dashboard", action="store_true", help="Force plain connection even if dashboard is enabled")
-    connect_p.add_argument("--mosh", action="store_true", help="Require mosh for this connection")
+    connect_p.add_argument("--mosh", action="store_true", help="Use mosh for this connection (falls back to ssh if mosh cannot connect)")
     connect_p.add_argument("--no-mosh", action="store_true", help="Use ssh even when mosh is available")
     add_monitor_flags(connect_p)
 

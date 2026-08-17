@@ -27,10 +27,10 @@ def _pane_argv(alias: str, monitor: str | None, monitors: list[str] | None = Non
 
 
 def _main_argv(alias: str) -> list[str]:
-    # Always ssh: the pane command chains into `tmux kill-session`, so a mosh
-    # bootstrap failure (no mosh-server, blocked UDP) would tear down the
-    # whole dashboard.
-    return [*self_command(), "connect", alias, "--no-dashboard", "--no-mosh"]
+    # The pane command chains into `tmux kill-session`, so the connect must
+    # not die on a failed mosh bootstrap. `connect` guarantees that: any mosh
+    # attempt that fails fast falls back to ssh inside the same process.
+    return [*self_command(), "connect", alias, "--no-dashboard"]
 
 
 def dashboard_backend() -> str | None:
