@@ -99,6 +99,33 @@ def test_mosh_usable_requires_no_saved_password(monkeypatch):
     assert not session.mosh_usable("host")
 
 
+def test_dashboard_main_pane_never_uses_mosh():
+    assert "--no-mosh" in dashboard._main_argv("phil")
+
+
+def test_run_ssh_auto_falls_back_to_ssh_on_fast_mosh_failure(monkeypatch):
+    calls = []
+    clock = iter([100.0, 101.0])  # mosh "ran" for 1 second
+    monkeypatch.setattr(session.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(session, "mosh_usable", lambda alias: True)
+    monkeypatch.setattr(session, "run_mosh", lambda alias: calls.append("mosh") or 255)
+    monkeypatch.setattr(session, "run_ssh", lambda alias, remote_args=None, allocate_tty=False: calls.append("ssh") or 0)
+    monkeypatch.setattr(session.secrets, "get_password", lambda alias: None)
+    assert session.run_ssh_auto("host") == 0
+    assert calls == ["mosh", "ssh"]
+
+
+def test_run_ssh_auto_keeps_mosh_exit_after_real_session(monkeypatch):
+    calls = []
+    clock = iter([100.0, 200.0])  # session lasted 100 seconds
+    monkeypatch.setattr(session.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(session, "mosh_usable", lambda alias: True)
+    monkeypatch.setattr(session, "run_mosh", lambda alias: calls.append("mosh") or 1)
+    monkeypatch.setattr(session, "run_ssh", lambda alias, remote_args=None, allocate_tty=False: calls.append("ssh") or 0)
+    assert session.run_ssh_auto("host") == 1
+    assert calls == ["mosh"]
+
+
 def test_password_prompt_detection():
     assert session.PASSWORD_PROMPT.search("me@host's password: ")
     assert session.PASSWORD_PROMPT.search("Enter passphrase for key '/x': ")

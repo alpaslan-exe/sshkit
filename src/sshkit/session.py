@@ -17,12 +17,16 @@ import re
 import shlex
 import subprocess
 import sys
+import time
 
 from . import clipboard, secrets
 from .compat import IS_WINDOWS, mosh_binary, ssh_binary
 
 PASSWORD_PROMPT = re.compile(r"(?i)(password|passphrase).*:\s*$")
 HOSTKEY_PROMPT = "are you sure you want to continue connecting"
+
+# A mosh exit this early is a failed bootstrap, not a finished session.
+MOSH_FAST_FAIL_SECONDS = 10.0
 
 
 def _ssh() -> str:
@@ -383,7 +387,14 @@ def run_ssh_auto(
         if use_mosh:
             return run_mosh(alias)
         if use_mosh is None and mosh_usable(alias):
-            return run_mosh(alias)
+            started = time.monotonic()
+            code = run_mosh(alias)
+            # A host without mosh-server (or with UDP filtered at connect
+            # time) makes the mosh bootstrap fail within seconds. Treat that
+            # as "mosh not available for this host" and retry over plain ssh.
+            if code in (0, 130) or time.monotonic() - started >= MOSH_FAST_FAIL_SECONDS:
+                return code  # clean exit, user interrupt, or a real session
+            print(f"[sshkit] mosh could not reach {alias}; falling back to ssh.", file=sys.stderr)
     if secrets.get_password(alias):
         return run_ssh_with_password(alias, remote_args, allocate_tty=allocate_tty)
     return run_ssh(alias, remote_args, allocate_tty)

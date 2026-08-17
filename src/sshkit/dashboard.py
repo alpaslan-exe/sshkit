@@ -27,7 +27,10 @@ def _pane_argv(alias: str, monitor: str | None, monitors: list[str] | None = Non
 
 
 def _main_argv(alias: str) -> list[str]:
-    return [*self_command(), "connect", alias, "--no-dashboard"]
+    # Always ssh: the pane command chains into `tmux kill-session`, so a mosh
+    # bootstrap failure (no mosh-server, blocked UDP) would tear down the
+    # whole dashboard.
+    return [*self_command(), "connect", alias, "--no-dashboard", "--no-mosh"]
 
 
 def dashboard_backend() -> str | None:
@@ -75,7 +78,7 @@ def _run_dashboard_tmux_combined(alias: str, monitors: list[str]) -> int:
         except subprocess.CalledProcessError:
             _tmux_kill(session)
             print("Terminal is too small for dashboard panes; falling back to plain SSH.", file=sys.stderr)
-            return run_ssh_auto(alias)
+            return run_ssh_auto(alias, use_mosh=False)
         subprocess.call(["tmux", "select-pane", "-t", f"{session}:0.0"])
         return subprocess.call(["tmux", "attach-session", "-t", session])
     except KeyboardInterrupt:
@@ -118,7 +121,7 @@ def _run_dashboard_tmux(alias: str, monitors: list[str]) -> int:
             except subprocess.CalledProcessError:
                 _tmux_kill(session)
                 print("Terminal is too small for dashboard panes; falling back to plain SSH.", file=sys.stderr)
-                return run_ssh_auto(alias)
+                return run_ssh_auto(alias, use_mosh=False)
         subprocess.call(["tmux", "select-pane", "-t", bottom_pane, "-T", first_monitor.upper()])
 
         remainder_pane = bottom_pane
@@ -189,10 +192,10 @@ def _run_dashboard_wt(alias: str, monitors: list[str]) -> int:
         proc = subprocess.run(argv)
     except OSError as exc:
         print(f"Could not start Windows Terminal dashboard: {exc}", file=sys.stderr)
-        return run_ssh_auto(alias)
+        return run_ssh_auto(alias, use_mosh=False)
     if proc.returncode != 0:
         print("Windows Terminal refused the dashboard layout; falling back to plain SSH.", file=sys.stderr)
-        return run_ssh_auto(alias)
+        return run_ssh_auto(alias, use_mosh=False)
     print(f"[sshkit] Dashboard for {alias} opened in a new Windows Terminal tab.")
     return 0
 
@@ -202,7 +205,7 @@ def _run_dashboard_wt(alias: str, monitors: list[str]) -> int:
 
 def run_dashboard(alias: str, monitors: list[str]) -> int:
     if not monitors:
-        return run_ssh_auto(alias)
+        return run_ssh_auto(alias, use_mosh=False)
     backend = dashboard_backend()
     if backend == "tmux":
         return _run_dashboard_tmux(alias, monitors)
@@ -212,4 +215,4 @@ def run_dashboard(alias: str, monitors: list[str]) -> int:
         f"sshkit dashboard mode needs tmux or Windows Terminal. {dashboard_hint()}",
         file=sys.stderr,
     )
-    return run_ssh_auto(alias)
+    return run_ssh_auto(alias, use_mosh=False)

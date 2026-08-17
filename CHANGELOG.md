@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.1
+
+### Fixed
+- Dashboards broke when mosh could not reach the host: the main pane picked
+  mosh automatically, a failed mosh bootstrap (no `mosh-server` on the remote,
+  or UDP filtered) exited immediately, and the pane's exit tore down the whole
+  tmux session. The dashboard main pane and all dashboard fallbacks now always
+  use ssh.
+- Plain interactive connects now fall back to ssh automatically when mosh
+  exits non-zero within 10 seconds (a failed bootstrap), so hosts without
+  `mosh-server` keep working without `--no-mosh`.
+
 ## 1.1.0
 
 ### Added
