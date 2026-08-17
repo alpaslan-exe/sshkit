@@ -190,6 +190,16 @@ def test_connect_host_mosh_never(monkeypatch):
     assert calls == [False]
 
 
+def test_child_env_strips_pyinstaller_state(monkeypatch):
+    monkeypatch.setenv("_PYI_PARENT_PROCESS_LEVEL", "1")
+    monkeypatch.setenv("_PYI_ARCHIVE_FILE", "/x/sshkit")
+    monkeypatch.setenv("_MEIPASS", "/tmp/_MEI1")
+    monkeypatch.setenv("PATH", "/usr/bin")
+    env = dashboard.child_env()
+    assert "PATH" in env
+    assert not any(k.startswith(("_PYI_", "_MEIPASS")) for k in env)
+
+
 def test_password_prompt_detection():
     assert session.PASSWORD_PROMPT.search("me@host's password: ")
     assert session.PASSWORD_PROMPT.search("Enter passphrase for key '/x': ")

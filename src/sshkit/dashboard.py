@@ -19,6 +19,17 @@ from .compat import IS_WINDOWS, self_command, which_first
 from .session import run_ssh_auto
 
 
+def child_env() -> dict[str, str]:
+    """Environment for the tmux/wt server, minus PyInstaller bootloader state.
+
+    A frozen sshkit that starts the tmux server leaks _PYI_*/_MEIPASS into
+    every pane; a pane that then runs the sshkit binary aborts in the
+    bootloader within milliseconds, and the main pane's kill-session chain
+    tears the dashboard down before the splits are even created.
+    """
+    return {k: v for k, v in os.environ.items() if not k.startswith(("_PYI_", "_MEIPASS"))}
+
+
 def _pane_argv(alias: str, monitor: str | None, monitors: list[str] | None = None) -> list[str]:
     argv = self_command()
     if monitor is not None:
@@ -72,15 +83,15 @@ def _run_dashboard_tmux_combined(alias: str, monitors: list[str]) -> int:
     main_cmd = f"{shlex.join(_main_argv(alias))}; tmux kill-session -t {shlex.quote(session)} 2>/dev/null"
     monitor_cmd = shlex.join(_pane_argv(alias, None, monitors))
     try:
-        subprocess.check_call(["tmux", "new-session", "-d", "-s", session, "-n", alias, main_cmd])
+        subprocess.check_call(["tmux", "new-session", "-d", "-s", session, "-n", alias, main_cmd], env=child_env())
         try:
-            subprocess.check_call(["tmux", "split-window", "-v", "-p", "35", "-t", f"{session}:0", monitor_cmd])
+            subprocess.check_call(["tmux", "split-window", "-v", "-p", "35", "-t", f"{session}:0", monitor_cmd], env=child_env())
         except subprocess.CalledProcessError:
             _tmux_kill(session)
             print("Terminal is too small for dashboard panes; falling back to plain SSH.", file=sys.stderr)
             return run_ssh_auto(alias, use_mosh=False)
-        subprocess.call(["tmux", "select-pane", "-t", f"{session}:0.0"])
-        return subprocess.call(["tmux", "attach-session", "-t", session])
+        subprocess.call(["tmux", "select-pane", "-t", f"{session}:0.0"], env=child_env())
+        return subprocess.call(["tmux", "attach-session", "-t", session], env=child_env())
     except KeyboardInterrupt:
         return 130
     except subprocess.CalledProcessError as exc:
@@ -93,7 +104,7 @@ def _run_dashboard_tmux(alias: str, monitors: list[str]) -> int:
     session = tmux_session_name(alias)
     main_cmd = f"{shlex.join(_main_argv(alias))}; tmux kill-session -t {shlex.quote(session)} 2>/dev/null"
     try:
-        subprocess.check_call(["tmux", "new-session", "-d", "-s", session, "-n", alias, main_cmd])
+        subprocess.check_call(["tmux", "new-session", "-d", "-s", session, "-n", alias, main_cmd], env=child_env())
         for option, value in (
             ("pane-border-status", "top"),
             ("pane-border-format", " #{pane_title} "),
@@ -111,12 +122,14 @@ def _run_dashboard_tmux(alias: str, monitors: list[str]) -> int:
             bottom_pane = subprocess.check_output(
                 ["tmux", "split-window", "-P", "-F", "#{pane_id}", "-v", "-p", "35", "-t", f"{session}:0", first_cmd],
                 text=True,
+                env=child_env(),
             ).strip()
         except subprocess.CalledProcessError:
             try:
                 bottom_pane = subprocess.check_output(
                     ["tmux", "split-window", "-P", "-F", "#{pane_id}", "-v", "-t", f"{session}:0", first_cmd],
                     text=True,
+                    env=child_env(),
                 ).strip()
             except subprocess.CalledProcessError:
                 _tmux_kill(session)
@@ -144,6 +157,7 @@ def _run_dashboard_tmux(alias: str, monitors: list[str]) -> int:
                         shlex.join(_pane_argv(alias, monitor)),
                     ],
                     text=True,
+                    env=child_env(),
                 ).strip()
                 subprocess.call(["tmux", "select-pane", "-t", new_pane, "-T", monitor.upper()])
                 remainder_pane = new_pane
@@ -160,8 +174,8 @@ def _run_dashboard_tmux(alias: str, monitors: list[str]) -> int:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        subprocess.call(["tmux", "select-pane", "-t", f"{session}:0.0"])
-        return subprocess.call(["tmux", "attach-session", "-t", session])
+        subprocess.call(["tmux", "select-pane", "-t", f"{session}:0.0"], env=child_env())
+        return subprocess.call(["tmux", "attach-session", "-t", session], env=child_env())
     except KeyboardInterrupt:
         return 130
     except subprocess.CalledProcessError as exc:
@@ -189,7 +203,7 @@ def _run_dashboard_wt(alias: str, monitors: list[str]) -> int:
         argv += [";", "split-pane", "--vertical", "--title", monitor.upper(), "--"]
         argv += _pane_argv(alias, monitor)
     try:
-        proc = subprocess.run(argv)
+        proc = subprocess.run(argv, env=child_env())
     except OSError as exc:
         print(f"Could not start Windows Terminal dashboard: {exc}", file=sys.stderr)
         return run_ssh_auto(alias, use_mosh=False)

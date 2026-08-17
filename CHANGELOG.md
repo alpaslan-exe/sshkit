@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.2
+
+### Fixed
+- Dashboards from the compiled binary died instantly with two "no server
+  running" errors and a bogus "Terminal is too small" fallback. The frozen
+  binary started the tmux server with PyInstaller bootloader state
+  (`_PYI_*`, `_MEIPASS`) in its environment; the main pane's sshkit child
+  aborted in the bootloader within milliseconds and its kill-session chain
+  destroyed the session before the splits were created. All tmux/Windows
+  Terminal launches now scrub that state from the environment.
+
 ## 1.2.1
 
 ### Fixed
