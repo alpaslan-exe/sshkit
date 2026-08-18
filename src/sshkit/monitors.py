@@ -32,8 +32,45 @@ while true; do
           printf "%s %s %s%% %s%% %.10s\n", $1, $2, $4, $5, cmd
         }
       ' | head -"$task_rows"
+  elif command -v rocm-smi >/dev/null 2>&1; then
+    rocm-smi --showuse --showtemp --showpower --showmeminfo vram --csv 2>/dev/null |
+      awk -F, '
+        NR == 1 {
+          for (i = 1; i <= NF; i++) {
+            h = tolower($i)
+            if (h ~ /gpu use/) u = i
+            else if (h ~ /temperature/ && !t) t = i
+            else if (h ~ /power/ && !p) p = i
+            else if (h ~ /used memory/) m = i
+            else if (h ~ /total memory/) tot = i
+          }
+          next
+        }
+        $1 ~ /^card[0-9]+$/ {
+          printf "#%s u%s%%", substr($1, 5), (u ? $u : "?")
+          if (m && tot) printf " m%d/%d", $m / 1048576, $tot / 1048576
+          printf " t%sC p%sW\n", (t ? $t : "?"), (p ? $p : "?")
+        }
+      ' | head -"$gpu_rows"
+    echo "pid vram cmd"
+    rocm-smi --showpids 2>/dev/null |
+      awk '$1 ~ /^[0-9]+$/ {printf "%s %s %.12s\n", $1, $4, $2}' | head -"$task_rows"
+  elif ls /sys/class/drm/card[0-9]*/device/gpu_busy_percent >/dev/null 2>&1; then
+    for dev in /sys/class/drm/card[0-9]*/device; do
+      [ -r "$dev/gpu_busy_percent" ] || continue
+      idx=$(basename "$(dirname "$dev")")
+      busy=$(cat "$dev/gpu_busy_percent" 2>/dev/null)
+      vu=$(cat "$dev/mem_info_vram_used" 2>/dev/null)
+      vt=$(cat "$dev/mem_info_vram_total" 2>/dev/null)
+      hw=$(ls -d "$dev"/hwmon/hwmon* 2>/dev/null | head -1)
+      tmp=$(cat "$hw/temp1_input" 2>/dev/null)
+      pw=$(cat "$hw/power1_average" 2>/dev/null || cat "$hw/power1_input" 2>/dev/null)
+      printf '#%s u%s%% m%s/%s t%sC p%sW\n' "${idx#card}" "${busy:-?}" \
+        "$((${vu:-0} / 1048576))" "$((${vt:-0} / 1048576))" \
+        "$((${tmp:-0} / 1000))" "$((${pw:-0} / 1000000))"
+    done | head -"$gpu_rows"
   else
-    echo "nvidia-smi missing"
+    echo "no GPU tool found (nvidia-smi / rocm-smi / amdgpu sysfs)"
   fi
   )
   printf '\033[H'
@@ -128,8 +165,20 @@ COMBINED_SECTIONS = {
 echo "=== GPU ==="
 if command -v nvidia-smi >/dev/null 2>&1; then
   nvidia-smi
+elif command -v rocm-smi >/dev/null 2>&1; then
+  rocm-smi 2>/dev/null || rocm-smi
+elif ls /sys/class/drm/card[0-9]*/device/gpu_busy_percent >/dev/null 2>&1; then
+  for dev in /sys/class/drm/card[0-9]*/device; do
+    [ -r "$dev/gpu_busy_percent" ] || continue
+    idx=$(basename "$(dirname "$dev")")
+    vu=$(cat "$dev/mem_info_vram_used" 2>/dev/null)
+    vt=$(cat "$dev/mem_info_vram_total" 2>/dev/null)
+    printf '%s: %s%% busy, %s/%s MB VRAM\n' "$idx" \
+      "$(cat "$dev/gpu_busy_percent" 2>/dev/null)" \
+      "$((${vu:-0} / 1048576))" "$((${vt:-0} / 1048576))"
+  done
 else
-  echo "nvidia-smi not found"
+  echo "no GPU tool found (nvidia-smi / rocm-smi / amdgpu sysfs)"
 fi""",
     "cpu": r"""echo
 echo "=== CPU ==="

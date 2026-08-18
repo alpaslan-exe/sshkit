@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0
+
+### Added
+- AMD GPU support in the `gpu` monitor pane and the combined dashboard view.
+  Fallback chain: `nvidia-smi`, then `rocm-smi` (CSV parsed by header names,
+  plus `--showpids` for the process list), then the bare `amdgpu` sysfs
+  interface (`gpu_busy_percent`, VRAM, hwmon temp/power — works without ROCm
+  installed). NVIDIA output is unchanged.
+
 ## 1.2.3
 
 ### Fixed

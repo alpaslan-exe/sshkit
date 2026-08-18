@@ -39,6 +39,23 @@ def test_monitor_scripts_exist_for_all_monitors():
     assert "=== CPU ===" in combined
 
 
+def test_gpu_monitor_covers_amd():
+    for script in (remote_monitor_script("gpu"), combined_monitor_script(["gpu"])):
+        assert "nvidia-smi" in script
+        assert "rocm-smi" in script
+        assert "gpu_busy_percent" in script
+
+
+def test_monitor_scripts_are_valid_sh():
+    import subprocess
+
+    for name in cli.DEFAULT_MONITORS:
+        proc = subprocess.run(["sh", "-n"], input=remote_monitor_script(name), text=True, capture_output=True)
+        assert proc.returncode == 0, f"{name}: {proc.stderr}"
+    proc = subprocess.run(["sh", "-n"], input=combined_monitor_script(list(cli.DEFAULT_MONITORS)), text=True, capture_output=True)
+    assert proc.returncode == 0, proc.stderr
+
+
 def test_pane_commands_have_no_shell_metacharacters():
     """Dashboard pane commands are embedded in tmux/wt command lines."""
     argv = dashboard._pane_argv("phil", "gpu")
